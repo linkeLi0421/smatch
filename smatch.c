@@ -60,10 +60,14 @@ int __cur_check_id;
 bool __silence_warnings_for_stmt;
 
 typedef void (*reg_func) (int id);
+typedef void (*reg_func1) (int id, char* file_name);
 #define CK(_x) {.name = #_x, .func = &_x, .enabled = 0},
 static struct reg_func_info {
 	const char *name;
-	reg_func func;
+	union {
+		reg_func func;
+		reg_func1 func1;
+	};
 	int enabled;
 } reg_funcs[] = {
 	{"internal", NULL},
@@ -340,6 +344,29 @@ static char *get_data_dir(char *arg0)
 	return NULL;
 }
 
+char* extract_filename(const char* str) {
+  	const char* pattern = ".c";
+    
+    // Find the position of the pattern in the string
+    const char* pos = strstr(str, pattern);
+    
+    if (pos != NULL) {
+        // Calculate the length of the substring to extract
+        size_t length = pos - str + strlen(pattern);
+        
+        // Allocate memory for the extracted substring
+        char* result = (char*)malloc(length + 1);
+        
+        // Copy the substring into the result buffer
+        strncpy(result, str, length);
+        result[length] = '\0'; // Null-terminate the string
+        
+        return alloc_string(result);
+    } else {
+	    return NULL;
+    }
+}
+
 int main(int argc, char **argv)
 {
 	struct string_list *filelist = NULL;
@@ -351,6 +378,7 @@ int main(int argc, char **argv)
 	caller_info_fd = stdout;
 
 	parse_args(&argc, &argv);
+	char* file_name = extract_filename(argv[argc-1]);
 
 	if (argc < 2)
 		help();
@@ -379,7 +407,10 @@ int main(int argc, char **argv)
 		if (!option_enable || reg_funcs[i].enabled == 1 ||
 		    (option_disable && reg_funcs[i].enabled != -1) ||
 		    strncmp(reg_funcs[i].name, "register_", 9) == 0)
-			func(i);
+				if (i == 193)
+					reg_funcs[i].func1(i, file_name);
+				else
+					func(i);
 	}
 	__cur_check_id = 0;
 
