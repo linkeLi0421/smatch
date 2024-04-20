@@ -66,6 +66,29 @@ static inline void prefix() {
 	printf("%s:%d %s() \n", get_filename(), get_lineno(), get_function());
 }
 
+char* string_in_file(const char *filename, const char *string_to_find) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        fprintf(stderr, "fopen() failed.\n");
+        return 0;
+    }
+
+    char buffer[1024];
+    while (fgets(buffer, sizeof(buffer), file)) {
+        if (strstr(buffer, string_to_find) != NULL) {
+            fclose(file);
+            return alloc_string(buffer);
+        }
+    }
+
+    fclose(file);
+    return NULL;
+}
+
+int is_protected_macro(char* macro) {
+	return strcmp(macro, "READ_ONCE") && strcmp(macro, "WRITE_ONCE");
+}
+
 // EXPR_SYMBOL + EXPR_DEREF
 static void match_barrier(struct expression *expr)
 {
@@ -101,25 +124,39 @@ static void match_barrier(struct expression *expr)
 			fprintf(stderr, "fopen() failed.\n");
 			exit(EXIT_FAILURE);
     	}
-		fprintf(fp, "%s,%s,%s\n", get_function(), type_to_str(get_type(expr_struct)), expr_field->name);
+		fprintf(fp, "%s,%s,%s,%d\n", get_function(), type_to_str(get_type(expr_struct)), expr_field->name, get_lineno());
 		fclose(fp);
 	}
 	
 }
 
-static void match_nonconsist(struct expression *expr) {
+static void match_inconsist(struct expression *expr) {
 	if (expr->type != EXPR_DEREF && expr->type != EXPR_SYMBOL)
 		return;
 
-	macro = get_macro_name(expr->pos);
-	if (marcro && strcmp(macro, "READ_ONCE") == 0)
+	char* macro = get_macro_name(expr->pos);
+	if (macro && !is_protected_macro(macro))
 		return;
 
 	if (expr->type == EXPR_DEREF) {
-		char *expr_str = expr_to_str(expr);
-		prefix();
-		if (expr_str)
-			printf("llk1: %s %s\n", expr_str, expression_type_name(expr->type));
+		struct expression *expr_struct = expr->deref;
+		struct ident *expr_field = expr->member;
+		char str_to_find[1024] = "";
+		char* func_name = get_function();
+		if (expr_struct && expr_field && func_name) {
+			strcat(str_to_find, func_name);
+			strcat(str_to_find, ",");
+			strcat(str_to_find, type_to_str(get_type(expr_struct)));
+			strcat(str_to_find, ",");
+			strcat(str_to_find, expr_field->name);
+			char* buffer_match = string_in_file(data_file, str_to_find);
+			if (buffer_match) {
+				// find inconsist
+				printf("find inconsist: %s,%d\nwith: %s\n", str_to_find, get_lineno(), buffer_match);
+			}
+		}
+
+
 	}
 }
 
