@@ -407,7 +407,7 @@ int main(int argc, char **argv)
 		if (!option_enable || reg_funcs[i].enabled == 1 ||
 		    (option_disable && reg_funcs[i].enabled != -1) ||
 		    strncmp(reg_funcs[i].name, "register_", 9) == 0)
-				if (i == 193)
+				if (i == 193 || i == 194)
 					reg_funcs[i].func1(i, file_name);
 				else
 					func(i);

@@ -66,26 +66,8 @@ static inline void prefix() {
 	printf("%s:%d %s() \n", get_filename(), get_lineno(), get_function());
 }
 
-char* string_in_file(const char *filename, const char *string_to_find) {
-    FILE *file = fopen(filename, "r");
-    if (file == NULL) {
-        fprintf(stderr, "fopen() failed.\n");
-        return 0;
-    }
 
-    char buffer[1024];
-    while (fgets(buffer, sizeof(buffer), file)) {
-        if (strstr(buffer, string_to_find) != NULL) {
-            fclose(file);
-            return alloc_string(buffer);
-        }
-    }
-
-    fclose(file);
-    return NULL;
-}
-
-int is_protected_macro(char* macro) {
+int not_protected_macro(char* macro) {
 	return strcmp(macro, "READ_ONCE") && strcmp(macro, "WRITE_ONCE");
 }
 
@@ -113,13 +95,14 @@ static void match_barrier(struct expression *expr)
 		prefix();
 		char* parent_str = expr_to_str(parent);
 		if (parent_str)
-			printf("llk: %s %s parent string: %s\n", expr_str, expression_type_name(expr->type), parent_str);
+			printf("llk: %s %s parent string: %s %s\n", expr_str, expression_type_name(expr->type), parent_str, expression_type_name(parent->type));
 	}
 
 	if (expr->type == EXPR_DEREF) {
 		struct expression *expr_struct = expr->deref;
 		struct ident *expr_field = expr->member;
 		char *expr_struct_str = expr_to_str(expr_struct);
+		char *expr_struct_type_str;
 		printf("struct: type of '%s' is: '%s'\n", expr_struct_str, type_to_str(get_type(expr_struct)));
 		printf("field: %s\n", expr_field->name);
 		FILE *fp = fopen(data_file, "a+");
@@ -127,50 +110,17 @@ static void match_barrier(struct expression *expr)
 			fprintf(stderr, "fopen() failed.\n");
 			exit(EXIT_FAILURE);
     	}
-		fprintf(fp, "%s,%s,%s,%d\n", get_function(), type_to_str(get_type(expr_struct)), expr_field->name, get_lineno());
+		printf("generate data file %s\n", data_file);
+		expr_struct_type_str = type_to_str(get_type(expr_struct));
+		if (parent) {
+			char* parent_str = expr_to_str(parent);
+			if (parent_str && parent_str[0] == '*')
+				strcat(expr_struct_type_str, "*");
+		}
+		fprintf(fp, "%s,%s,%s,%s,%d\n", get_filename(), get_function(), expr_struct_type_str, expr_field->name, get_lineno());
 		fclose(fp);
 	}
 	
-}
-
-static bool is_assign_left(struct expression* expr) {
-	struct expression *parent = expr_get_parent_expr(expr);
-	char* expr_str = expr_to_str(expr);
-	// if (parent)
-	// 	printf("expr: %s parent->left: %s\n", expr_str, expr_to_str(strip_expr(parent->left)));
-	if (parent && parent->type == EXPR_ASSIGNMENT && strcmp(expr_str, expr_to_str(strip_expr(parent->left))) == 0)
-		return 1;
-	return 0;
-}
-
-static void match_inconsist(struct expression *expr) {
-	if (expr->type != EXPR_DEREF && expr->type != EXPR_SYMBOL)
-		return;
-
-	char* macro = get_macro_name(expr->pos);
-	if (macro && !is_protected_macro(macro))
-		return;
-
-	if (expr->type == EXPR_DEREF) {
-		struct expression *expr_struct = expr->deref;
-		struct ident *expr_field = expr->member;
-		char str_to_find[1024] = "";
-		char* func_name = get_function();
-		if (expr_struct && expr_field && func_name) {
-			strcat(str_to_find, func_name);
-			strcat(str_to_find, ",");
-			strcat(str_to_find, type_to_str(get_type(expr_struct)));
-			strcat(str_to_find, ",");
-			strcat(str_to_find, expr_field->name);
-			char* buffer_match = string_in_file(data_file, str_to_find);
-			if (buffer_match) {
-				// find inconsist
-				printf("find inconsist: %s,%d\nwith: %s\n", str_to_find, get_lineno(), buffer_match);
-			}
-		}
-
-
-	}
 }
 
 void replaceChar(char *str, char oldChar, char newChar) {
@@ -182,7 +132,7 @@ void replaceChar(char *str, char oldChar, char newChar) {
     }
 }
 
-void check_cb(int id, char* file_name)
+void check_barrier(int id, char* file_name)
 {
 	my_id = id;
 
@@ -190,8 +140,7 @@ void check_cb(int id, char* file_name)
 	strcpy(data_file, "/home/linke/Desktop/smatch/smatch_data/llk_data/");
 	strcat(data_file, file_name);
 	strcat(data_file, ".csv");
-	printf("data_file: %s\n", data_file);
+	remove(data_file); // remove if exist
 
 	add_hook(&match_barrier, EXPR_HOOK);
-	// add_hook(&match_nonconsist, EXPR_HOOK);
 }

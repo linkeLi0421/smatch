@@ -1589,8 +1589,10 @@ bool has_devm_cleanup(void);
 void add_set_current_state_hook(string_hook *hook);
 bool task_not_running(void);
 
-/* check_cb.c */
+/* check_barrier.c */
 bool is_held_lock(void);
+int not_protected_macro(char* macro);
+void replaceChar(char *str, char oldChar, char newChar);
 
 static inline bool type_is_ptr(struct symbol *type)
 {

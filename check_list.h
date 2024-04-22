@@ -211,7 +211,8 @@ CK(check_always_true)
 
 /* <- your test goes here */
 /* CK(register_template) */
-CK(check_cb)
+CK(check_barrier)
+CK(check_inconsist)
 
 /* kernel specific */
 CK(check_kernel_printf)
