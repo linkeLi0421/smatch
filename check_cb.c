@@ -104,6 +104,9 @@ static void match_barrier(struct expression *expr)
 	if (expr->type != EXPR_DEREF && expr->type != EXPR_SYMBOL)
 		return;
 	
+	if (is_held_lock())
+		return;
+
 	expr_str = expr_to_str(expr);
 	parent = expr_get_parent_expr(expr);
 	if (expr_str && parent) {
@@ -128,6 +131,16 @@ static void match_barrier(struct expression *expr)
 		fclose(fp);
 	}
 	
+}
+
+static bool is_assign_left(struct expression* expr) {
+	struct expression *parent = expr_get_parent_expr(expr);
+	char* expr_str = expr_to_str(expr);
+	// if (parent)
+	// 	printf("expr: %s parent->left: %s\n", expr_str, expr_to_str(strip_expr(parent->left)));
+	if (parent && parent->type == EXPR_ASSIGNMENT && strcmp(expr_str, expr_to_str(strip_expr(parent->left))) == 0)
+		return 1;
+	return 0;
 }
 
 static void match_inconsist(struct expression *expr) {

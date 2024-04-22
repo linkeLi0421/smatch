@@ -1312,6 +1312,18 @@ void print_held_locks(void)
 	} END_FOR_EACH_SM(sm);
 }
 
+bool is_held_lock(void) {
+	struct stree *stree;
+	struct sm_state *sm;
+
+	stree = __get_cur_stree();
+	FOR_EACH_MY_SM(my_id, stree, sm) {
+		if (sm->state == &locked)
+			return 1;
+	} END_FOR_EACH_SM(sm);
+	return 0;
+}
+
 static void load_table(struct lock_info *lock_table)
 {
 	int i;

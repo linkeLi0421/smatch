@@ -1589,6 +1589,9 @@ bool has_devm_cleanup(void);
 void add_set_current_state_hook(string_hook *hook);
 bool task_not_running(void);
 
+/* check_cb.c */
+bool is_held_lock(void);
+
 static inline bool type_is_ptr(struct symbol *type)
 {
 	return type &&
