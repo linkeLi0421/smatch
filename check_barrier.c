@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include "smatch_extra.h"
 #include <string.h>
+#include <unistd.h>
 
 static int my_id;
 static char data_file[100];
@@ -64,11 +65,6 @@ static const char *expression_type_name(enum expression_type type)
 
 static inline void prefix() {
 	printf("%s:%d %s() \n", get_filename(), get_lineno(), get_function());
-}
-
-
-int not_protected_macro(char* macro) {
-	return strcmp(macro, "READ_ONCE") && strcmp(macro, "WRITE_ONCE");
 }
 
 // EXPR_SYMBOL + EXPR_DEREF
@@ -140,6 +136,8 @@ void check_barrier(int id, char* file_name)
 	strcpy(data_file, "/home/linke/Desktop/smatch/smatch_data/llk_data/");
 	strcat(data_file, file_name);
 	strcat(data_file, ".csv");
+	if (access(data_file, F_OK) != -1)
+		return;
 	remove(data_file); // remove if exist
 
 	add_hook(&match_barrier, EXPR_HOOK);

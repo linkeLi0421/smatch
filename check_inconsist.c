@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include "smatch_extra.h"
 #include <string.h>
+#include <unistd.h>
 
 static int my_id;
 static char data_file[100];
@@ -28,6 +29,19 @@ static char output_file[100];
 
 static inline void prefix() {
 	printf("%s:%d %s() \n", get_filename(), get_lineno(), get_function());
+}
+
+static int not_protected_macro(char* macro) {
+	const char* protected_macro_list[] = {
+		"READ_ONCE",
+		"WRITE_ONCE",
+		"xchg",
+		"atomic"
+	};
+	for (int i = 0; i < sizeof(protected_macro_list) / sizeof(protected_macro_list[0]); ++i)
+		if (strstr(macro, protected_macro_list[i]) != NULL)
+			return 0;
+	return 1;
 }
 
 static char* string_in_file(const char *filename, const char *string_to_find) {
@@ -53,8 +67,13 @@ static bool is_assign_left(struct expression* expr) {
 	char* expr_str = expr_to_str(expr);
 	if (!parent)
 		return 0;
+	if (parent->type != EXPR_ASSIGNMENT)
+		return 0;
 	struct expression *expr_left = strip_expr(parent->left); 
-	if (parent->type == EXPR_ASSIGNMENT && expr_left && expr_str && strcmp(expr_str, expr_to_str(expr_left)) == 0)
+	if (!expr_left)
+		return 0;
+	char* expr_left_str = expr_to_str(expr_left);
+	if (expr_str && expr_left_str && strcmp(expr_str, expr_left_str) == 0)
 		return 1;
 	return 0;
 }
@@ -133,6 +152,9 @@ void check_inconsist(int id, char* file_name)
 	strcat(data_file, file_name);
 	strcat(data_file, ".csv");
     strcpy(output_file, "/home/linke/Desktop/smatch/smatch_data/llk_output/result.csv");
+
+	if (access(data_file, F_OK) == -1)
+		return;
 
 	add_hook(&match_inconsist, EXPR_HOOK);
 }
