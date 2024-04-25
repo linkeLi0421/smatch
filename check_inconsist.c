@@ -23,6 +23,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#define MAX_LINE_LENGTH 1024
+#define MAX_FIELDS 5
+
 static int my_id;
 static char data_file[100];
 static char output_file[100];
@@ -44,17 +47,43 @@ static int not_protected_macro(char* macro) {
 	return 1;
 }
 
-static char* string_in_file(const char *filename, const char *string_to_find) {
-    FILE *file = fopen(filename, "r");
+static char* string_in_file(const char *filename, const char *file_name_to_find, const char *func_name_to_find,
+ const char *struct_type_to_find, const char *field_name_to_find) {
+    FILE *file;
+    char line[MAX_LINE_LENGTH];
+    char *token;
+    char *fields[MAX_FIELDS];
+
+    // Open the file
+    file = fopen(filename, "r");
     if (file == NULL) {
-        return 0; // not find barrier in file yet
+        return NULL;
     }
 
-    char buffer[1024];
-    while (fgets(buffer, sizeof(buffer), file)) {
-        if (strstr(buffer, string_to_find) != NULL) {
-            fclose(file);
-            return alloc_string(buffer);
+    // Read each line
+    while (fgets(line, MAX_LINE_LENGTH, file) != NULL) {
+        int field_count = 0;
+
+        // Tokenize the line using commas as delimiters
+        token = strtok(line, ",");
+        while (token != NULL && field_count < MAX_FIELDS) {
+            fields[field_count++] = token;
+            token = strtok(NULL, ",");
+        }
+
+        // Process the fields
+        if (field_count >= 5) {
+            const char *file_name = fields[0];
+            const char *func_name = fields[1];
+            const char *stuct_type = fields[2];
+            const char *field_name = fields[3];
+			const char *line_num = fields[4];
+
+			if (strcmp(file_name, file_name_to_find) == 0 &&
+				strcmp(func_name, func_name_to_find) == 0 &&
+				strcmp(stuct_type, struct_type_to_find) == 0 &&
+				strcmp(field_name, field_name_to_find) == 0)
+				return alloc_string(line_num);
         }
     }
 
@@ -120,24 +149,15 @@ static void match_inconsist(struct expression *expr) {
 	if (expr->type == EXPR_DEREF && !is_held_lock() && !is_assign_left(expr)) {
 		struct expression *expr_struct = expr->deref;
 		struct ident *expr_field = expr->member;
-		char str_to_find[1024] = "";
 		char* func_name = get_function();
 		const char* file_name = get_filename();
 		if (expr_struct && expr_field && func_name) {
-			strcat(str_to_find, file_name);
-			strcat(str_to_find, ",");
-			strcat(str_to_find, func_name);
-			strcat(str_to_find, ",");
-			strcat(str_to_find, type_to_str(get_type(expr_struct)));
-			strcat(str_to_find, ",");
-			strcat(str_to_find, expr_field->name);
-			char* buffer_match = string_in_file(data_file, str_to_find);
-			if (buffer_match) {
+			char* line_num = string_in_file(data_file, file_name, func_name, type_to_str(get_type(expr_struct)), expr_field->name);
+			if (line_num) {
 				// find inconsist
-				printf("find inconsist: %s, %s, %d\nwith: %s\n", get_filename(), expr_str, get_lineno(), buffer_match);
                 FILE *fp = fopen(output_file, "a+");
                 printf("generate output file %s\n", output_file);
-                fprintf(fp, "%s,%s,%d,%s",  get_filename(), expr_str, get_lineno(), buffer_match);
+                fprintf(fp, "%s,%s,%s,%d,%s",  get_filename(), func_name, expr_str, get_lineno(), line_num);
                 fclose(fp);
 			}
 		}
