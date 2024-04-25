@@ -34,12 +34,13 @@ static inline void prefix() {
 	printf("%s:%d %s() \n", get_filename(), get_lineno(), get_function());
 }
 
-static int not_protected_macro(char* macro) {
+static int __not_protected_macro(char* macro) {
 	const char* protected_macro_list[] = {
 		"READ_ONCE",
 		"WRITE_ONCE",
 		"xchg",
-		"atomic"
+		"atomic",
+		"smp"
 	};
 	for (int i = 0; i < sizeof(protected_macro_list) / sizeof(protected_macro_list[0]); ++i)
 		if (strstr(macro, protected_macro_list[i]) != NULL)
@@ -124,6 +125,19 @@ void replaceSubstring(char *str, const char *oldSubstr, const char *newSubstr) {
     }
 }
 
+static bool is_protected_macro(struct expression *p) {
+	char* macro;
+	struct expression *parent;
+	parent = p;
+	while (parent) {
+		macro = get_macro_name(parent->pos);
+		if (macro && !__not_protected_macro(macro))
+			return 1;
+		parent = expr_get_parent_expr(parent);
+	}
+	return 0;
+}
+
 static void match_inconsist(struct expression *expr) {
 	char* expr_str = expr_to_str(expr);
 	struct expression *parent = expr_get_parent_expr(expr);
@@ -136,8 +150,7 @@ static void match_inconsist(struct expression *expr) {
 	if (expr->type != EXPR_DEREF && expr->type != EXPR_SYMBOL)
 		return;
 
-	char* macro = get_macro_name(expr->pos);
-	if (macro && !not_protected_macro(macro))
+	if (is_protected_macro(parent))
 		return;
 
 	if (parent && parent->type == EXPR_DEREF)
