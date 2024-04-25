@@ -114,6 +114,9 @@ static void match_inconsist(struct expression *expr) {
 	if (parent && parent->type == EXPR_DEREF)
 		return;
 
+	if (parent && parent->type == EXPR_PREOP && parent->op == '&')
+		return;
+
 	if (expr->type == EXPR_DEREF && !is_held_lock() && !is_assign_left(expr)) {
 		struct expression *expr_struct = expr->deref;
 		struct ident *expr_field = expr->member;
