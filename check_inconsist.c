@@ -41,7 +41,13 @@ static int __not_protected_macro(char* macro) {
 		"xchg",
 		"atomic",
 		"smp",
-		"data_race"
+		"data_race",
+		"_wmb",
+		"_rmb",
+		"_mb",
+		"_release",
+		"_load_acquire"
+
 	};
 	for (int i = 0; i < sizeof(protected_macro_list) / sizeof(protected_macro_list[0]); ++i)
 		if (strstr(macro, protected_macro_list[i]) != NULL)
