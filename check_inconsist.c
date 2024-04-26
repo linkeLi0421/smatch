@@ -40,7 +40,8 @@ static int __not_protected_macro(char* macro) {
 		"WRITE_ONCE",
 		"xchg",
 		"atomic",
-		"smp"
+		"smp",
+		"data_race"
 	};
 	for (int i = 0; i < sizeof(protected_macro_list) / sizeof(protected_macro_list[0]); ++i)
 		if (strstr(macro, protected_macro_list[i]) != NULL)
