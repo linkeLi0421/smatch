@@ -55,7 +55,7 @@ static int __not_protected_macro(char* macro) {
 	return 1;
 }
 
-static char* string_in_file(const char *filename, const char *file_name_to_find, const char *func_name_to_find,
+static char* get_linenum_if_match_file(const char *filename, const char *file_name_to_find, const char *func_name_to_find,
  const char *struct_type_to_find, const char *field_name_to_find) {
     FILE *file;
     char line[MAX_LINE_LENGTH];
@@ -145,9 +145,36 @@ static bool is_protected_macro(struct expression *p) {
 	return 0;
 }
 
+int is_string_in_file(const char *filename, const char *search_string) {
+    FILE *file;
+    char line[1024]; // Adjust this size according to your needs
+
+    // Open the file
+    file = fopen(filename, "r");
+    if (file == NULL) {
+        perror("Error opening file");
+        return 0;
+    }
+
+    // Read each line and check for the search string
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (strstr(line, search_string) != NULL) {
+            fclose(file);
+            return 1; // String found in the file
+        }
+    }
+
+    // Close the file
+    fclose(file);
+
+    // String not found in the file
+    return 0;
+}
+
 static void match_inconsist(struct expression *expr) {
 	char* expr_str = expr_to_str(expr);
 	struct expression *parent = expr_get_parent_expr(expr);
+	char str_to_ouput[1000];
 	// if (expr_str && parent) {
 	// 	prefix();
 	// 	char* parent_str = expr_to_str(parent);
@@ -166,23 +193,43 @@ static void match_inconsist(struct expression *expr) {
 	if (parent && parent->type == EXPR_PREOP && parent->op == '&')
 		return;
 
+	char* func_name = get_function();
+	const char* file_name = get_filename();
+
 	if (expr->type == EXPR_DEREF && !is_held_lock() && !is_assign_left(expr)) {
 		struct expression *expr_struct = expr->deref;
 		struct ident *expr_field = expr->member;
-		char* func_name = get_function();
-		const char* file_name = get_filename();
 		if (expr_struct && expr_field && func_name) {
-			char* line_num = string_in_file(data_file, file_name, func_name, type_to_str(get_type(expr_struct)), expr_field->name);
+			char* line_num = get_linenum_if_match_file(data_file, file_name, func_name, type_to_str(get_type(expr_struct)), expr_field->name);
 			if (line_num) {
 				// find inconsist
+				sprintf(str_to_ouput, "%s,%s,%s,%d,%s",  get_filename(), func_name, expr_str, get_lineno(), line_num);
+				if (is_string_in_file(output_file, str_to_ouput))
+					return;
                 FILE *fp = fopen(output_file, "a+");
-                printf("generate output file %s\n", output_file);
-                fprintf(fp, "%s,%s,%s,%d,%s",  get_filename(), func_name, expr_str, get_lineno(), line_num);
+                // printf("generate output file %s\n", output_file);
+                fprintf(fp, "%s", str_to_ouput);
                 fclose(fp);
 			}
 		}
 
 
+	}
+
+	if (expr->type == EXPR_SYMBOL && !is_held_lock() && !is_assign_left(expr)) {
+		char *symbol_str = expr_to_str(expr);
+		char *symbol_type = type_to_str(get_type(expr));
+		if (symbol_str && symbol_type) {
+			char* line_num = get_linenum_if_match_file(data_file, file_name, func_name, symbol_str, symbol_type);
+			if (line_num) {
+				sprintf(str_to_ouput, "%s,%s,%s,%d,%s",  get_filename(), func_name, expr_str, get_lineno(), line_num);
+				if (is_string_in_file(output_file, str_to_ouput))
+					return;
+				FILE *fp = fopen(output_file, "a+");
+                fprintf(fp, "%s", str_to_ouput);
+                fclose(fp);
+			}
+		}
 	}
 }
 

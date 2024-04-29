@@ -116,6 +116,18 @@ static void match_barrier(struct expression *expr)
 		fprintf(fp, "%s,%s,%s,%s,%d\n", get_filename(), get_function(), expr_struct_type_str, expr_field->name, get_lineno());
 		fclose(fp);
 	}
+
+	if (expr->type == EXPR_SYMBOL) {
+		char *symbol_str = expr_to_str(expr);
+		char *symbol_type = type_to_str(get_type(expr));
+		FILE *fp = fopen(data_file, "a+");
+		if (fp == NULL) {
+			fprintf(stderr, "fopen() failed.\n");
+			exit(EXIT_FAILURE);
+    	}
+		if (symbol_str && symbol_type)
+			fprintf(fp, "%s,%s,%s,%s,%d\n", get_filename(), get_function(), symbol_str, symbol_type, get_lineno());
+	}
 	
 }
 
